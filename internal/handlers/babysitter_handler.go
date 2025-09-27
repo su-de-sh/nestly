@@ -9,13 +9,6 @@ import (
 	"github.com/su-de-sh/nestly/internal/repository"
 )
 
-type BabysitterRequest struct {
-	ID    string `json:"id"`
-	Name  string `json:"name"`
-	Email string `json:"email"`
-	Phone string `json:"phone"`
-}
-
 type BabysitterHandler struct {
 	babysitterRepository *repository.BabySitterRepository
 }
@@ -26,8 +19,6 @@ func NewBabysitterHandler(babysitterRepository *repository.BabySitterRepository,
 		babysitterRepository: babysitterRepository,
 	}
 }
-
-var babySitterDb = []BabysitterRequest{}
 
 func (h *BabysitterHandler) Create(w http.ResponseWriter, r *http.Request) {
 
@@ -51,8 +42,10 @@ func (h *BabysitterHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 func (h *BabysitterHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 
+	babySitters := h.babysitterRepository.GetBabySitters()
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(babySitterDb)
+	json.NewEncoder(w).Encode(babySitters)
 
 }
 
@@ -65,20 +58,18 @@ func (h *BabysitterHandler) UpdateById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req BabysitterRequest
+	var req request.BabysitterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request error", http.StatusBadRequest)
 		return
 	}
-	for i, bs := range babySitterDb {
-		if bs.ID == id {
-			babySitterDb[i] = req
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(req)
-			return
-		}
+
+	if err := h.babysitterRepository.UpdateById(id, req); err != nil {
+		http.Error(w, "Error updating babysitter", http.StatusInternalServerError)
+		return
 	}
-	http.Error(w, "Babysitter not found", http.StatusNotFound)
+
+	w.WriteHeader(http.StatusNoContent)
 
 }
 
@@ -89,12 +80,10 @@ func (h *BabysitterHandler) DeleteById(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "ID is required", http.StatusBadRequest)
 		return
 	}
-	for i, bs := range babySitterDb {
-		if bs.ID == id {
-			babySitterDb = append(babySitterDb[:i], babySitterDb[i+1:]...)
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
+	if err := h.babysitterRepository.DeleteById(id); err != nil {
+		http.Error(w, "Error deleting babysitter", http.StatusInternalServerError)
+		return
 	}
-	http.Error(w, "Babysitter not found", http.StatusNotFound)
+	w.WriteHeader(http.StatusNoContent)
+
 }
